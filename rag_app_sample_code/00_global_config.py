@@ -65,7 +65,7 @@ mlflow.set_experiment(MLFLOW_EXPERIMENT_NAME)
 # Data pipeline MLflow run name
 POC_DATA_PIPELINE_RUN_NAME = "data_pipeline_poc"
 # Chain MLflow run name
-POC_CHAIN_RUN_NAME = "poc"
+POC_CHAIN_RUN_NAME = "poc-2"
 
 # COMMAND ----------
 
