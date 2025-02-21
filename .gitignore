@@ -1,0 +1,18 @@
+genai_cookbook/_build
+env
+.env
+.DS_STORE
+.idea
+__pycache__
+
+# Exclude `databricks sync` CLI command snapshots
+.databricks
+openai_sdk_agent_app_sample_code/configs/*/*.yaml
+openai_sdk_agent_app_sample_code/configs/*.yaml
+dist/
+mlruns/
+
+_scratch_pad/
+openai_sdk_agent_app_sample_code/_scratch_pad/
+.vscode/
+*poetry.lock
