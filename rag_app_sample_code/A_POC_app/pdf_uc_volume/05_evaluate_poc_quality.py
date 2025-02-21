@@ -9,8 +9,21 @@ import pandas as pd
 from databricks import agents
 
 # COMMAND ----------
+import yaml 
 
-# MAGIC %run ./00_config
+with open("configs.yaml", "r") as f:
+    configs = yaml.safe_load(f)
+
+rag_chain_config = configs["rag_chain_config"]
+data_pipeline_config = configs["data_pipeline"]
+
+global_config = configs["global_config"]
+
+RAG_APP_NAME = global_config["RAG_APP_NAME"]
+EVALUATION_SET_FQN = global_config["EVALUATION_SET_FQN"]
+MLFLOW_EXPERIMENT_NAME = global_config["MLFLOW_EXPERIMENT_NAME"]
+POC_CHAIN_RUN_NAME = global_config["POC_CHAIN_RUN_NAME"]
+CHAIN_CODE_FILE = configs["code_file"]
 
 # COMMAND ----------
 
