@@ -21,7 +21,7 @@
 # MAGIC dbutils.library.restartPython()
 
 # COMMAND ----------
-
+import mlflow
 from pypdf import PdfReader
 from typing import TypedDict, Dict
 import warnings
@@ -57,23 +57,66 @@ def get_table_url(table_fqdn):
 # COMMAND ----------
 
 # MAGIC %run ./00_config
+# COMMAND ----------
+import yaml
+with open("configs.yaml", "r") as f:
+    configs = yaml.safe_load(f)
+
+global_config = configs["global_config"]
+data_pipeline_config = configs["data_pipeline"]
+destination_tables_config = configs["destination_tables"]
+vectorsearch_config = data_pipeline_config["vectorsearch_config"]
+embedding_config = data_pipeline_config["embedding_config"]
+
+    
+RAG_APP_NAME = global_config["RAG_APP_NAME"]
+EVALUATION_SET_FQN = global_config["EVALUATION_SET_FQN"]
+MLFLOW_EXPERIMENT_NAME = global_config["MLFLOW_EXPERIMENT_NAME"]
+POC_DATA_PIPELINE_RUN_NAME = global_config["POC_DATA_PIPELINE_RUN_NAME"]
+POC_CHAIN_RUN_NAME = global_config["POC_CHAIN_RUN_NAME"]
+SOURCE_PATH = global_config["SOURCE_PATH"]
+VECTOR_SEARCH_ENDPOINT = global_config["VECTOR_SEARCH_ENDPOINT"]
 
 # COMMAND ----------
-
+mlflow.set_experiment(MLFLOW_EXPERIMENT_NAME)
 mlflow.end_run()
 # Start MLflow logging
 run = mlflow.start_run(run_name=POC_DATA_PIPELINE_RUN_NAME)
-
+# COMMAND ----------
 # Tag the run
 mlflow.set_tag("type", "data_pipeline")
 
+from typing import Dict, Any
+
+def _flatten_nested_params(
+    d: Dict[str, Any], parent_key: str = "", sep: str = "/"
+) -> Dict[str, str]:
+    items: Dict[str, Any] = {}
+    for k, v in d.items():
+        new_key = f"{parent_key}{sep}{k}" if parent_key else k
+        if isinstance(v, dict):
+            items.update(_flatten_nested_params(v, new_key, sep=sep))
+        else:
+          items[new_key] = v
+    return items
+
+with open("configs.yaml", "r") as f:
+    configs = yaml.safe_load(f)
+
+rag_chain_config = configs["rag_chain_config"]
+pipeline_config = configs["data_pipeline"]
+destination_tables_config = configs["destination_tables"]
+vectorsearch_config = data_pipeline_config["vectorsearch_config"]
+embedding_config = data_pipeline_config["embedding_config"]
+llm_config = rag_chain_config["llm_config"]
+
 # Set the parameters
-mlflow.log_params(_flatten_nested_params({"data_pipeline": data_pipeline_config}))
+mlflow.log_params(_flatten_nested_params({"pipeline": pipeline_config}))
 mlflow.log_params(_flatten_nested_params({"destination_tables": destination_tables_config}))
 
 # Log the configs as artifacts for later use
 mlflow.log_dict(destination_tables_config, "destination_tables_config.json")
-mlflow.log_dict(data_pipeline_config, "data_pipeline_config.json")
+mlflow.log_dict(pipeline_config, "pipeline_config.json")
 
 # COMMAND ----------
 
@@ -92,7 +135,7 @@ mlflow.log_dict(data_pipeline_config, "data_pipeline_config.json")
 raw_files_df = (
     spark.read.format("binaryFile")
     .option("recursiveFileLookup", "true")
-    .option("pathGlobFilter", f"*.{pipeline_config.get('file_format')}")
+    .option("pathGlobFilter", f"*.{pipeline_config['pipeline_config']['file_format']}")
     .load(SOURCE_PATH)
 )
 
@@ -113,6 +156,23 @@ if raw_files_df.count() == 0:
         f"`{SOURCE_PATH}` does not contain any files.  Open the volume and upload at least file."
     )
     raise Exception(f"`{SOURCE_PATH}` does not contain any files.")
+
+def tag_delta_table(table_fqn, config):
+    flat_config = _flatten_nested_params(config)
+    sqls = []
+    for key, item in flat_config.items():
+        
+        sqls.append(f"""
+        ALTER TABLE {table_fqn}
+        SET TAGS ("{key.replace("/", "__")}" = "{item}")
+        """)
+    sqls.append(f"""
+        ALTER TABLE {table_fqn}
+        SET TAGS ("table_source" = "rag_poc_pdf")
+        """)
+    for sql in sqls:
+        # print(sql)
+        spark.sql(sql)
 
 tag_delta_table(destination_tables_config["raw_files_table_name"], data_pipeline_config)
 
@@ -318,8 +378,8 @@ def chunk_parsed_content_langrecchar(
 
 # COMMAND ----------
 
-chunker_conf = pipeline_config.get("chunker")
-
+chunker_conf = pipeline_config['pipeline_config']['chunker']
+embedding_config = configs["data_pipeline"]["embedding_config"]
 chunker_udf = func.udf(
     partial(
         chunk_parsed_content_langrecchar,
@@ -362,7 +422,8 @@ if num_errors > 0:
 chunked_files_df = chunked_files_df.filter(chunked_files_df.chunked.chunker_status == "SUCCESS").select(
     "path",
     func.explode("chunked.chunked_text").alias("chunked_text"),
-    func.md5(func.col("chunked_text")).alias("chunk_id")
+    func.md5(func.col("chunked_text")).alias("chunk_id"),
+    func.col("path").alias("document_uri")
 )
 
 # Write to Delta Table
@@ -395,7 +456,16 @@ mlflow.log_input(mlflow.data.load_delta(table_name=destination_tables_config.get
 from databricks.vector_search.client import VectorSearchClient
 
 # Get the vector search index
-vsc = VectorSearchClient(disable_notice=True)
+
+import os 
+from dotenv import load_dotenv
+
+load_dotenv(override=True)
+
+PAT = os.getenv("DATABRICKS_TOKEN")
+
+vsc = VectorSearchClient(disable_notice=True,
+                         personal_access_token=PAT)
 
 # COMMAND ----------
 
@@ -475,3 +545,5 @@ chain_config = {
 mlflow.log_dict(chain_config, "chain_config.json")
 
 mlflow.end_run()
+
+# COMMAND ----------

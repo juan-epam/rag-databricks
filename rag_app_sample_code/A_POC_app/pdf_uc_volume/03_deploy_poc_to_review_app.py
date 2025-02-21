@@ -14,9 +14,23 @@ from databricks.sdk.errors import NotFound, ResourceDoesNotExist
 
 w = WorkspaceClient()
 
+
 # COMMAND ----------
 
-# MAGIC %run ./00_config
+import yaml
+with open("configs.yaml", "r") as f:
+    configs = yaml.safe_load(f)
+
+rag_chain_config = configs["rag_chain_config"]
+data_pipeline_config = configs["data_pipeline"]
+
+global_config = configs["global_config"]
+
+RAG_APP_NAME = global_config["RAG_APP_NAME"]
+EVALUATION_SET_FQN = global_config["EVALUATION_SET_FQN"]
+MLFLOW_EXPERIMENT_NAME = global_config["MLFLOW_EXPERIMENT_NAME"]
+POC_CHAIN_RUN_NAME = global_config["POC_CHAIN_RUN_NAME"]
+CHAIN_CODE_FILE = configs["code_file"]
 
 # COMMAND ----------
 
@@ -29,7 +43,8 @@ w = WorkspaceClient()
 # MAGIC `# TODO: link docs for code-based logging`
 
 # COMMAND ----------
-
+import mlflow
+mlflow.set_experiment(MLFLOW_EXPERIMENT_NAME)
 # Log the model to MLflow
 # TODO: remove example_no_conversion once this papercut is fixed
 with mlflow.start_run(run_name=POC_CHAIN_RUN_NAME):
@@ -37,9 +52,7 @@ with mlflow.start_run(run_name=POC_CHAIN_RUN_NAME):
     mlflow.set_tag("type", "chain")
 
     logged_chain_info = mlflow.langchain.log_model(
-        lc_model=os.path.join(
-            os.getcwd(), CHAIN_CODE_FILE
-        ),  # Chain code file e.g., /path/to/the/chain.py
+        lc_model=CHAIN_CODE_FILE,  # Chain code file e.g., /path/to/the/chain.py
         model_config=rag_chain_config,  # Chain configuration set in 00_config
         artifact_path="chain",  # Required by MLflow
         input_example=rag_chain_config[
@@ -50,19 +63,13 @@ with mlflow.start_run(run_name=POC_CHAIN_RUN_NAME):
     )
 
     # Attach the data pipeline's configuration as parameters
-    mlflow.log_params(_flatten_nested_params({"data_pipeline": data_pipeline_config}))
-
+    mlflow.log_dict(data_pipeline_config, "data_pipeline_config.json")
     # Attach the data pipeline configuration 
     mlflow.log_dict(data_pipeline_config, "data_pipeline_config.json")
 
 
 # COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## Test the chain locally
-
-# COMMAND ----------
-
+## Test the chain locally
 chain_input = {
     "messages": [
         {
@@ -108,12 +115,21 @@ print(instructions_to_reviewer)
 
 # Use Unity Catalog to log the chain
 mlflow.set_registry_uri('databricks-uc')
+UC_MODEL_NAME = global_config['UC_MODEL_NAME']
 
 # Register the chain to UC
 uc_registered_model_info = mlflow.register_model(model_uri=logged_chain_info.model_uri, name=UC_MODEL_NAME)
 
+# COMMAND ----------
 # Deploy to enable the Review APP and create an API endpoint
-deployment_info = agents.deploy(model_name=UC_MODEL_NAME, model_version=uc_registered_model_info.version)
+deployment_info = agents.deploy(
+    model_name=UC_MODEL_NAME,
+    model_version=uc_registered_model_info.version,
+    environment_vars=[{
+        "key": "HOST",
+        "value": os.getenv("DATABRICKS_HOST")
+    }]
+)
 
 browser_url = mlflow.utils.databricks_utils.get_browser_hostname()
 print(f"\n\nView deployment status: https://{browser_url}/ml/endpoints/{deployment_info.endpoint_name}")

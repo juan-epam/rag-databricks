@@ -12,6 +12,23 @@ import mlflow
 # COMMAND ----------
 
 # MAGIC %run ../../00_global_config
+# COMMAND ----------
+import yaml
+with open("../../global_config.yaml", "r") as f:
+    global_config = yaml.safe_load(f)
+
+RAG_APP_NAME = global_config["RAG_APP_NAME"]
+EVALUATION_SET_FQN = global_config["EVALUATION_SET_FQN"]
+MLFLOW_EXPERIMENT_NAME = global_config["MLFLOW_EXPERIMENT_NAME"]
+POC_DATA_PIPELINE_RUN_NAME = global_config["POC_DATA_PIPELINE_RUN_NAME"]
+POC_CHAIN_RUN_NAME = global_config["POC_CHAIN_RUN_NAME"]
+SOURCE_PATH = global_config["SOURCE_PATH"]
+VECTOR_SEARCH_ENDPOINT = global_config["VECTOR_SEARCH_ENDPOINT"]
+UC_CATALOG = global_config["UC_CATALOG"]
+UC_SCHEMA = global_config["UC_SCHEMA"]
+UC_MODEL_NAME = global_config["UC_MODEL_NAME"]
+user_email = global_config["user_email"]
+user_name = global_config["user_name"]
 
 # COMMAND ----------
 
@@ -36,6 +53,8 @@ print(f"POC app using the UC catalog/schema {UC_CATALOG}.{UC_SCHEMA} with source
 # MAGIC By default, we use [GTE Embeddings](https://docs.databricks.com/en/generative-ai/create-query-vector-search.html#call-a-bge-embeddings-model-using-databricks-model-serving-notebook) that is available on [Databricks Foundation Model APIs](https://docs.databricks.com/en/machine-learning/foundation-models/index.html).  GTE is a high quality open source embedding model with a large context window.  We have selected a tokenizer and chunk size that matches this embedding model.
 
 # COMMAND ----------
+
+configs = {}
 
 data_pipeline_config = {
     # Vector Search index configuration
@@ -69,13 +88,13 @@ data_pipeline_config = {
         "chunker": {
             "name": "langchain_recursive_char",
             "config": {
-                "chunk_size_tokens": 1024,
-                "chunk_overlap_tokens": 256,
+                "chunk_size_tokens": 512,
+                "chunk_overlap_tokens": 128,
             },
         },
     },
 }
-
+configs["data_pipeline"] = data_pipeline_config
 # COMMAND ----------
 
 # MAGIC %md
@@ -98,6 +117,8 @@ destination_tables_config = {
 }
 destination_tables_config["vectorsearch_index_name"] = destination_tables_config["vectorsearch_index_table_name"].replace("`", "")
 
+configs["destination_tables"] = destination_tables_config
+
 # COMMAND ----------
 
 # MAGIC %md
@@ -109,7 +130,7 @@ destination_tables_config["vectorsearch_index_name"] = destination_tables_config
 
 import json
 
-vectorsearch_config = data_pipeline_config['vectorsearch_config']
+vectorsearch_config = data_pipeline_config['vectorsearch']
 embedding_config = data_pipeline_config['embedding_config']
 pipeline_config = data_pipeline_config['pipeline_config']
 
@@ -146,11 +167,12 @@ print(f"Writing to: {json.dumps(destination_tables_config, indent=4)}\n")
 # COMMAND ----------
 
 # Notebook with the chain's code.  Choose one based on your requirements.  
-# If you are not sure, use the `multi_turn_rag_chain`.
+# If you are not sure, use the `multi_turn_rag_chain.py`
 
-# CHAIN_CODE_FILE = "single_turn_rag_chain"
+# CHAIN_CODE_FILE = "single_turn_rag_chain.py"
+CHAIN_CODE_FILE = "multi_turn_rag_chain.py"
 
-CHAIN_CODE_FILE = "multi_turn_rag_chain"
+configs["code_file"] = CHAIN_CODE_FILE
 
 # COMMAND ----------
 
@@ -177,7 +199,7 @@ rag_chain_config = {
             "document_uri": "path",
         },
         # Prompt template used to format the retrieved information to present to the LLM to help in answering the user's question
-        "chunk_template": "Passage: {chunk_text}\n",
+        "chunk_template": "From doc_uri: {document_uri}\nPassage: {chunk_text}\n",
         # The column name in the retriever's response that refers to the original document.
         "parameters": {
             # Number of search results that the retriever returns
@@ -208,6 +230,8 @@ Context: {context}""".strip(),
     },
 }
 
+configs['rag_chain_config'] = rag_chain_config
+
 # COMMAND ----------
 
 # MAGIC %md
@@ -217,11 +241,13 @@ Context: {context}""".strip(),
 
 # COMMAND ----------
 
-import yaml
-print(f"Using chain config: {json.dumps(rag_chain_config, indent=4)}\n\n Using chain file: {CHAIN_CODE_FILE}")
+configs["global_config"] = global_config
 
-with open('rag_chain_config.yaml', 'w') as f:
-    yaml.dump(rag_chain_config, f)
+import yaml
+print(f"Using chain config: {json.dumps(configs, indent=4)}\n\n Using chain file: {CHAIN_CODE_FILE}")
+
+with open('configs.yaml', 'w') as f:
+    yaml.dump(configs, f)
 
 # COMMAND ----------
 
@@ -230,3 +256,5 @@ with open('rag_chain_config.yaml', 'w') as f:
 # COMMAND ----------
 
 # MAGIC %run ../z_shared_utilities
+
+# COMMAND ----------

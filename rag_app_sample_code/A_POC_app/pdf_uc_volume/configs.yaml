@@ -1,4 +1,4 @@
-code_file: multi_turn_rag_chain
+code_file: multi_turn_rag_chain.py
 data_pipeline:
   embedding_config:
     embedding_endpoint_name: databricks-gte-large-en
@@ -17,6 +17,12 @@ data_pipeline:
       name: pypdf
   vectorsearch_config:
     pipeline_type: CONTINUOUS
+destination_tables:
+  chunked_docs_table_name: '`main`.`test_lt`.`deepseek_rag_poc_chunked_docs_gold`'
+  parsed_docs_table_name: '`main`.`test_lt`.`deepseek_rag_poc_parsed_docs_silver`'
+  raw_files_table_name: '`main`.`test_lt`.`deepseek_rag_poc_raw_files_bronze`'
+  vectorsearch_index_name: main.test_lt.deepseek_rag_poc_chunked_docs_gold_index
+  vectorsearch_index_table_name: '`main`.`test_lt`.`deepseek_rag_poc_chunked_docs_gold_index`'
 global_config:
   EVALUATION_SET_FQN: '`main`.`test_lt`.deepseek_rag_evaluation_set'
   MLFLOW_EXPERIMENT_NAME: /Users/juan_tello@epam.com/deepseek_rag

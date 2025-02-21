@@ -23,59 +23,49 @@ import mlflow
 
 # COMMAND ----------
 
-# By default, will use the current user name to create a unique UC catalog/schema & vector search endpoint
-user_email = spark.sql("SELECT current_user() as username").collect()[0].username
-user_name = user_email.split("@")[0].replace(".", "").lower()[:35]
+class GlobalConfig:
+    def __init__(self):
+        self.user_email = "juan_tello@epam.com"
+        self.user_name = self.user_email.split("@")[0].replace(".", "").lower()[:35]
+        
+        self.RAG_APP_NAME = 'deepseek_rag'
+        self.UC_CATALOG = 'main'
+        self.UC_SCHEMA = 'test_lt'
+        self.UC_MODEL_NAME = f"{self.UC_CATALOG}.{self.UC_SCHEMA}.{self.RAG_APP_NAME}"
+        self.VECTOR_SEARCH_ENDPOINT = f'{self.user_name}_vector_search'
+        self.SOURCE_PATH = f"/Volumes/{self.UC_CATALOG}/{self.UC_SCHEMA}/docs"
+        self.EVALUATION_SET_FQN = f"`{self.UC_CATALOG}`.`{self.UC_SCHEMA}`.{self.RAG_APP_NAME}_evaluation_set"
+        self.MLFLOW_EXPERIMENT_NAME = f"/Users/{self.user_email}/{self.RAG_APP_NAME}"
+        self.POC_DATA_PIPELINE_RUN_NAME = "data_pipeline_poc"
+        self.POC_CHAIN_RUN_NAME = "reduced-chunk-size"
+
+    def print_config(self):
+        print(f"RAG_APP_NAME {self.RAG_APP_NAME}")
+        print(f"UC_CATALOG {self.UC_CATALOG}")
+        print(f"UC_SCHEMA {self.UC_SCHEMA}")
+        print(f"UC_MODEL_NAME {self.UC_MODEL_NAME}")
+        print(f"VECTOR_SEARCH_ENDPOINT {self.VECTOR_SEARCH_ENDPOINT}")
+        print(f"SOURCE_PATH {self.SOURCE_PATH}")
+        print(f"EVALUATION_SET_FQN {self.EVALUATION_SET_FQN}")
+        print(f"MLFLOW_EXPERIMENT_NAME {self.MLFLOW_EXPERIMENT_NAME}")
+        print(f"POC_DATA_PIPELINE_RUN_NAME {self.POC_DATA_PIPELINE_RUN_NAME}")
+        print(f"POC_CHAIN_RUN_NAME {self.POC_CHAIN_RUN_NAME}")
+
+# Create global config instance
+global_config = GlobalConfig()
+
+# try: 
+#     mlflow.set_experiment(global_config.MLFLOW_EXPERIMENT_NAME)
+# except Exception as e:
+#     print(f"Error setting MLflow experiment: {e}")
+
+global_config.print_config()
 
 # COMMAND ----------
 
-# The name of the RAG application.  This is used to name the chain's UC model and prepended to the output Delta Tables + Vector Indexes
-RAG_APP_NAME = 'deepseek_rag'
+import yaml 
 
-# UC Catalog & Schema where outputs tables/indexs are saved
-# If this catalog/schema does not exist, you need create catalog/schema permissions.
-UC_CATALOG = f'main'
-UC_SCHEMA = f'test_lt'
-
-## UC Model name where the POC chain is logged
-UC_MODEL_NAME = f"{UC_CATALOG}.{UC_SCHEMA}.{RAG_APP_NAME}"
-
-# Vector Search endpoint where index is loaded
-# If this does not exist, it will be created
-VECTOR_SEARCH_ENDPOINT = f'{user_name}_vector_search'
-
-# Source location for documents
-# You need to create this location and add files
-SOURCE_PATH = f"/Volumes/{UC_CATALOG}/{UC_SCHEMA}/docs"
-
-############################
-##### We suggest accepting these defaults unless you need to change them. ######
-############################
-
-EVALUATION_SET_FQN = f"`{UC_CATALOG}`.`{UC_SCHEMA}`.{RAG_APP_NAME}_evaluation_set"
-
-# MLflow experiment name
-# Using the same MLflow experiment for a single app allows you to compare runs across Notebooks
-MLFLOW_EXPERIMENT_NAME = f"/Users/{user_email}/{RAG_APP_NAME}"
-mlflow.set_experiment(MLFLOW_EXPERIMENT_NAME)
-
-# MLflow Run Names
-# These Runs will store your initial POC application.  They are later used to evaluate the POC model against your experiments to improve quality.
-
-# Data pipeline MLflow run name
-POC_DATA_PIPELINE_RUN_NAME = "data_pipeline_poc"
-# Chain MLflow run name
-POC_CHAIN_RUN_NAME = "poc-2"
+with open("global_config.yaml", "w") as f:
+    yaml.dump(global_config.__dict__, f)
 
 # COMMAND ----------
-
-print(f"RAG_APP_NAME {RAG_APP_NAME}")
-print(f"UC_CATALOG {UC_CATALOG}")
-print(f"UC_SCHEMA {UC_SCHEMA}")
-print(f"UC_MODEL_NAME {UC_MODEL_NAME}")
-print(f"VECTOR_SEARCH_ENDPOINT {VECTOR_SEARCH_ENDPOINT}")
-print(f"SOURCE_PATH {SOURCE_PATH}")
-print(f"EVALUATION_SET_FQN {EVALUATION_SET_FQN}")
-print(f"MLFLOW_EXPERIMENT_NAME {MLFLOW_EXPERIMENT_NAME}")
-print(f"POC_DATA_PIPELINE_RUN_NAME {POC_DATA_PIPELINE_RUN_NAME}")
-print(f"POC_CHAIN_RUN_NAME {POC_CHAIN_RUN_NAME}")
