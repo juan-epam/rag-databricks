@@ -26,6 +26,8 @@ from langchain_core.prompts import (
 from langchain_core.runnables import RunnablePassthrough, RunnableBranch
 from langchain_core.messages import HumanMessage, AIMessage
 
+from langchain_community.document_transformers import CohereRerank
+
 ## Enable MLflow Tracing
 mlflow.langchain.autolog()
 
@@ -49,6 +51,7 @@ model_config = mlflow.models.ModelConfig(development_config="rag_chain_config.ya
 databricks_resources = model_config.get("databricks_resources")
 retriever_config = model_config.get("retriever_config")
 llm_config = model_config.get("llm_config")
+reranker_config = model_config.get("reranker_config")
 
 ############
 # Connect to the Vector Search Index
@@ -162,6 +165,15 @@ model = ChatDatabricks(
 )
 
 ############
+# Add Reranker
+############
+reranker = CohereRerank(
+    model=reranker_config.get("model_name"),
+    top_n=reranker_config.get("top_n"),
+    api_key=os.environ["COHERE_API_KEY"]  # Set this in your environment
+)
+
+############
 # RAG Chain
 ############
 chain = (
@@ -181,6 +193,7 @@ chain = (
             itemgetter("question"),
         )
         | vector_search_as_retriever
+        | RunnableLambda(lambda docs: reranker.compress_documents(docs, query=question))
         | RunnableLambda(format_context),
         "formatted_chat_history": itemgetter("formatted_chat_history"),
         "question": itemgetter("question"),

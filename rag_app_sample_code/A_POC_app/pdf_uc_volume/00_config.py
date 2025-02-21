@@ -130,7 +130,7 @@ configs["destination_tables"] = destination_tables_config
 
 import json
 
-vectorsearch_config = data_pipeline_config['vectorsearch']
+vectorsearch_config = data_pipeline_config['vectorsearch_config']
 embedding_config = data_pipeline_config['embedding_config']
 pipeline_config = data_pipeline_config['pipeline_config']
 
