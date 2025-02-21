@@ -43,6 +43,7 @@ CHAIN_CODE_FILE = configs["code_file"]
 # MAGIC `# TODO: link docs for code-based logging`
 
 # COMMAND ----------
+
 import mlflow
 mlflow.set_experiment(MLFLOW_EXPERIMENT_NAME)
 # Log the model to MLflow
@@ -52,7 +53,7 @@ with mlflow.start_run(run_name=POC_CHAIN_RUN_NAME):
     mlflow.set_tag("type", "chain")
 
     logged_chain_info = mlflow.langchain.log_model(
-        lc_model=CHAIN_CODE_FILE,  # Chain code file e.g., /path/to/the/chain.py
+        lc_model=CHAIN_CODE_FILE.replace(".py", ""),  # Chain code file e.g., /path/to/the/chain.py
         model_config=rag_chain_config,  # Chain configuration set in 00_config
         artifact_path="chain",  # Required by MLflow
         input_example=rag_chain_config[
@@ -69,6 +70,7 @@ with mlflow.start_run(run_name=POC_CHAIN_RUN_NAME):
 
 
 # COMMAND ----------
+
 ## Test the chain locally
 chain_input = {
     "messages": [
@@ -121,14 +123,11 @@ UC_MODEL_NAME = global_config['UC_MODEL_NAME']
 uc_registered_model_info = mlflow.register_model(model_uri=logged_chain_info.model_uri, name=UC_MODEL_NAME)
 
 # COMMAND ----------
+
 # Deploy to enable the Review APP and create an API endpoint
 deployment_info = agents.deploy(
     model_name=UC_MODEL_NAME,
     model_version=uc_registered_model_info.version,
-    environment_vars=[{
-        "key": "HOST",
-        "value": os.getenv("DATABRICKS_HOST")
-    }]
 )
 
 browser_url = mlflow.utils.databricks_utils.get_browser_hostname()

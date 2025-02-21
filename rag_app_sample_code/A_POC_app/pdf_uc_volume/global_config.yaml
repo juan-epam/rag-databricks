@@ -1,0 +1,12 @@
+EVALUATION_SET_FQN: '`main`.`test_lt`.deepseek_rag_evaluation_set'
+MLFLOW_EXPERIMENT_NAME: /Users/juan_tello@epam.com/deepseek_rag
+POC_CHAIN_RUN_NAME: reduced-chunk-size
+POC_DATA_PIPELINE_RUN_NAME: data_pipeline_poc
+RAG_APP_NAME: deepseek_rag
+SOURCE_PATH: /Volumes/main/test_lt/docs
+UC_CATALOG: main
+UC_MODEL_NAME: main.test_lt.deepseek_rag
+UC_SCHEMA: test_lt
+VECTOR_SEARCH_ENDPOINT: juan_tello_vector_search
+user_email: juan_tello@epam.com
+user_name: juan_tello
